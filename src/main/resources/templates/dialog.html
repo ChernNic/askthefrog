@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Диалог с Лицом</title>
+    <!-- Подключение Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Подключение Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        /* Применение шрифта ко всей странице */
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+
+        /* Центрирование контейнера */
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Центрирование лица */
+        #face {
+            width: 350px;
+            height: 350px;
+            animation: sway 3s ease-in-out infinite;
+        }
+
+        @keyframes sway {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(5deg); }
+            50% { transform: rotate(0deg); }
+            75% { transform: rotate(-5deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        /* Плавные переходы для формы */
+        .form-container {
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.5s ease;
+        }
+
+        .visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        /* Стиль для выравнивания полей и кнопок в одной строке */
+        .input-group {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .input-group input, .input-group select {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+
+        /* Стили для кнопок с изображениями */
+        .btn-light img {
+            width: 50px;
+        }
+
+        /* Кнопка "Назад" */
+        .btn-back {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .btn-back.visible {
+            display: inline-block;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container text-center">
+    <!-- Лицо в центре страницы -->
+    <img id="face" src="/face_idle.gif" alt="Лицо" />
+
+    <!-- Текстовое сообщение от лица -->
+    <p id="responseText" class="mt-3">Привет! Задай вопрос</p>
+
+    <!-- Основные кнопки -->
+    <div id="initial-buttons">
+        <button class="btn btn-primary m-2" id="btn-calculate">Посчитать пример</button>
+        <button class="btn btn-primary m-2" id="btn-convert">Конвертировать валюту</button>
+        <button class="btn btn-primary m-2" id="btn-feed">Покормить лицо</button>
+    </div>
+
+    <!-- Форма для калькулятора -->
+    <div id="calculate-form" class="form-container">
+        <div class="input-group mt-2">
+            <input type="text" class="form-control" id="calculation-input" placeholder="Введите пример, например 24 / 3" />
+            <button class="btn btn-primary" id="calculate-btn">Решить</button>
+        </div>
+        <button class="btn btn-secondary btn-back" id="btn-back-calculate">Назад</button>
+    </div>
+
+    <!-- Форма для конвертера валют -->
+    <div id="convert-form" class="form-container">
+        <div class="input-group mt-2">
+            <input type="number" class="form-control" id="amount" placeholder="Сумма" />
+            <select id="fromCurrency" class="form-select">
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+            </select>
+            <select id="toCurrency" class="form-select">
+                <option value="RUB">RUB</option>
+                <option value="EUR">EUR</option>
+            </select>
+            <button class="btn btn-success" id="convert-btn">Конвертировать</button>
+        </div>
+        <button class="btn btn-secondary btn-back" id="btn-back-convert">Назад</button>
+    </div>
+
+    <!-- Форма для кормления -->
+    <div id="feed-form" class="form-container">
+        <div class="input-group">
+            <button class="btn btn-light" id="btn-salt"><img src="/salt.png" alt="Соль"></button>
+            <button class="btn btn-light" id="btn-sandwich"><img src="/sandwich.png" alt="Бутерброд"></button>
+            <button class="btn btn-light" id="btn-cucumber"><img src="/cucumber.png" alt="Огурец"></button>
+        </div>
+        <button class="btn btn-secondary btn-back" id="btn-back-feed">Назад</button>
+    </div>
+</div>
+
+<!-- Звук для говорящего лица -->
+<audio id="talkingSound">
+    <source src="/talk_sound.mp3" type="audio/mpeg">
+</audio>
+
+<!-- Звук еды -->
+<audio id="eatingSound">
+    <source src="/eating_sound.mp3" type="audio/mpeg">
+</audio>
+
+<audio id="questionSound">
+    <source src="/queastion_sound.mp3" type="audio/mpeg">
+</audio>
+
+<audio id="angrySound">
+    <source src="/angry_sound.mp3" type="audio/mpeg">
+</audio>
+
+
+<script>
+    $(document).ready(function() {
+        var talkingSound = document.getElementById('talkingSound');  // Звук говорения
+        var eatingSound = document.getElementById('eatingSound');    // Звук еды
+        var questionSound = document.getElementById('questionSound');    // Звук вопроса
+        var angrySound = document.getElementById('angrySound');    // Звук злости
+
+        // Массив случайных фраз для приветствия
+        var randomGreetingPhrases = [
+            "Привет! Задай вопрос.",
+            "Что будем делать сегодня?",
+            "Жду команды!",
+            "Как твои дела? Начнем?"
+        ];
+
+        // Массив случайных фраз для ошибок
+        var randomErrorPhrases = [
+            "Я вас не понял, попробуйте еще раз.",
+            "Ой, что-то не то! Введите корректные данные.",
+            "Ошибка! Проверьте ввод и попробуйте снова.",
+            "Блин, это неверно. Попробуй еще раз!"
+        ];
+
+        // Массив случайных фраз для конвертации валют
+        var randomConvertPhrases = [
+            "Слушаю.",
+            "Готов к конвертации валют!",
+            "Какую валюту нужно перевести?",
+            "Начнем конвертацию, давай данные!"
+        ];
+
+        // Функция для генерации случайной фразы
+        function getRandomPhrase(randomPhrases) {
+            var randomIndex = Math.floor(Math.random() * randomPhrases.length);
+            return randomPhrases[randomIndex];
+        }
+
+        let currentTimeout = null;  // Переменная для хранения текущего таймера
+
+// Функция для печати текста с эффектом печатной машинки
+        function typeText(text, elementId, delay, onComplete) {
+            let i = 0;
+            let element = $('#' + elementId);
+
+            // Останавливаем текущую печать (если она была)
+            if (currentTimeout) {
+                clearTimeout(currentTimeout);
+                currentTimeout = null;
+            }
+
+            // Очищаем текстовое поле перед началом новой печати
+            element.text("");
+
+            function typing() {
+                if (i < text.length) {
+                    element.append(text.charAt(i));
+                    i++;
+                    currentTimeout = setTimeout(typing, delay);  // Сохраняем ID таймера
+                } else {
+                    if (onComplete) onComplete();  // Вызываем колбэк, если он передан
+                }
+            }
+
+            typing();  // Запускаем печать
+        }
+
+        // Воспроизведение звука
+        function playSound(sound) {
+            sound.play();
+        }
+
+        function stopSound(sound) {
+            sound.pause();
+            sound.currentTime = 0;
+        }
+
+        // Функция смены лица и воспроизведения текста с другим звуком
+        function changeFaceAndSpeak(face, text, callback, soundToPlay = talkingSound) {
+            $('#face').attr('src', face);  // Меняем лицо
+            if (soundToPlay) {
+                playSound(soundToPlay);  // Воспроизводим другой звук (еда, злость и т.д.)
+            }
+            typeText(text, "responseText", 100, function() {
+                $('#face').attr('src', '/face_idle.gif');  // Возвращаем лицо на "молчаливое"
+                if (soundToPlay) {
+                    stopSound(soundToPlay);  // Останавливаем звук после завершения текста
+                }
+                if (callback) callback();  // Выполняем коллбек после завершения
+            });
+        }
+
+        // Скрытие формы и выполнение анимации
+        function hideFormAndAnimate(formId, callback) {
+            $(formId).removeClass('visible');  // Скрываем форму
+            setTimeout(function () {
+                $(formId).css('visibility', 'hidden');  // Полностью скрываем
+                callback();  // Выполняем анимацию или действие
+            }, 500);
+        }
+
+        function showFormAfterDelay() {
+            setTimeout(function () {
+                resetToInitial();
+            }, 2000);
+        }
+
+        // Возврат к начальному состоянию
+        function resetToInitial() {
+            $('.form-container').removeClass('visible');
+            $('.btn-back').removeClass('visible');  // Скрываем кнопку "Назад"
+            setTimeout(function () {
+                $('.form-container').css('visibility', 'hidden');
+                $('#initial-buttons').show();
+                changeFaceAndSpeak('/face_talking.gif', getRandomPhrase(randomGreetingPhrases));
+            }, 500);
+        }
+
+        // Показ формы с плавным переходом
+        function showForm(formId, backButtonId) {
+            $('.form-container').removeClass('visible');
+            $('#initial-buttons').hide();
+            setTimeout(function () {
+                $(formId).css('visibility', 'visible').addClass('visible');
+                $(backButtonId).addClass('visible');  // Показываем кнопку "Назад"
+            }, 500);
+        }
+
+        // Обработка кнопки "Посчитать пример"
+        $('#btn-calculate').click(function() {
+            showForm('#calculate-form', '#btn-back-calculate');
+            changeFaceAndSpeak('/face_talking.gif', 'Задай пример');
+        });
+
+        // Обработка кнопки "Конвертировать валюту"
+        $('#btn-convert').click(function() {
+            showForm('#convert-form', '#btn-back-convert');
+            changeFaceAndSpeak('/face_talking.gif', getRandomPhrase(randomConvertPhrases));
+        });
+
+        // Обработка кнопки "Покормить лицо"
+        $('#btn-feed').click(function() {
+            showForm('#feed-form', '#btn-back-feed');
+            playSound(questionSound);  // Воспроизводим звук вопроса
+            changeFaceAndSpeak('/face_talking.gif', 'Дай мне бутерброд!', null, null);  // Без звука говорения
+        });
+
+        // Обработка формы для кормления
+        $('#btn-salt, #btn-cucumber').click(function() {
+            hideFormAndAnimate('#feed-form', function() {
+                playSound(angrySound);  // Воспроизводим звук злости
+                changeFaceAndSpeak('/face_talking.gif', 'Блять ты ахуел!', function() {
+                    showFormAfterDelay();
+                }, angrySound);
+            });
+        });
+
+        $('#btn-sandwich').click(function() {
+            hideFormAndAnimate('#feed-form', function() {
+                playSound(eatingSound);  // Воспроизводим звук еды
+                changeFaceAndSpeak('/face_talking.gif', 'Ам ам ам ам', function() {
+                    showFormAfterDelay();
+                }, eatingSound);
+            });
+        });
+
+        // Обработка кнопки "Назад" для кормления
+        $('#btn-back-feed').click(function() {
+            resetToInitial();
+        });
+
+        // Обработка кнопки "Назад" для калькулятора
+        $('#btn-back-calculate').click(function() {
+            resetToInitial();
+        });
+
+        // Обработка кнопки "Назад" для конвертера
+        $('#btn-back-convert').click(function() {
+            resetToInitial();
+        });
+
+        // Обработка формы для калькулятора
+        $('#calculate-btn').click(function() {
+            var input = $('#calculation-input').val().trim();
+            var validPattern = /^[0-9]+[ ]*[\+\-\*\/][ ]*[0-9]+$/;  // Регулярное выражение для проверки примеров
+
+            if (validPattern.test(input)) {
+                // Если пример правильный, отправляем на сервер для расчета
+                $.ajax({
+                    url: '/calculate',
+                    type: 'GET',
+                    data: { expression: input },
+                    success: function(response) {
+                        changeFaceAndSpeak('/face_talking.gif', response);
+                    }
+                });
+            } else {
+                // Если пример некорректный
+                changeFaceAndSpeak('/face_talking.gif', getRandomPhrase(randomErrorPhrases));
+            }
+        });
+
+        // Обработка формы для конвертера валют
+        $('#convert-btn').click(function() {
+            var amount = $('#amount').val();
+            var fromCurrency = $('#fromCurrency').val();
+            var toCurrency = $('#toCurrency').val();
+
+            if (amount > 0) {
+                $.ajax({
+                    url: '/convert',
+                    type: 'GET',
+                    data: {
+                        amount: amount,
+                        fromCurrency: fromCurrency,
+                        toCurrency: toCurrency
+                    },
+                    success: function(response) {
+                        changeFaceAndSpeak('/face_talking.gif', response);
+                    }
+                });
+            } else {
+                // Если сумма некорректная
+                changeFaceAndSpeak('/face_talking.gif', 'Введите правильную сумму');
+            }
+        });
+    });
+</script>
+
+
+</body>
+</html>
